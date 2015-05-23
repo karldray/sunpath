@@ -5,13 +5,16 @@ import Math.Vector3 as V3 exposing (Vec3, vec3)
 import Time exposing (Time)
 
 
--- we represent locations on the sphere as unit vectors
+-- represent locations on the sphere as unit vectors
 type alias Location = Vec3
 
 
 mod1: Float -> Float
 mod1 x = x - toFloat (floor x)
 
+-- in km
+distance : Location -> Location -> Float
+distance a b = 6371 * acos (V3.dot a b)
 
 -- (0, 0) -> (1, 0, 0)
 fromLatLong : Float -> Float -> Location

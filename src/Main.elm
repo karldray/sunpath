@@ -1,12 +1,14 @@
 module Main where
 
 import Airports exposing (Airport)
+import Geometry
 import Graph
 import Html as H exposing (Html)
 import Html.Events as E
 import Html.Attributes as A
 import Http
 import LocalTime
+import Number.Format exposing (prettyInt, pretty)
 import Ref exposing (Ref)
 import Result
 import Signal exposing (Mailbox, mailbox, (<~), (~))
@@ -14,6 +16,7 @@ import String
 import Structs exposing (..)
 import Style as S
 import Task exposing (Task, andThen)
+import Time
 
 
 endpoint : EndpointSpec -> List Airport -> Result String Endpoint
@@ -90,9 +93,21 @@ view airports model =
 
 graphs : FlightPath -> Html
 graphs path = H.div []
-    [ H.fromElement <| Graph.sunAltitude 500 200 path
+    [ H.div [] [H.text (stats path)]
+    , H.text "Sun altitude:"
+    , H.fromElement <| Graph.sunAltitude 500 200 path
+    , H.text "Local solar time:"
     , H.fromElement <| Graph.apparentTime 600 400 path
     ]
+
+stats : FlightPath -> String
+stats path = -- todo: pretty time deltas, miles
+    let dist = Geometry.distance path.start.airport.location path.end.airport.location
+        time = (path.end.time - path.start.time) / Time.hour
+        speed = dist / time
+    in  (pretty 1 ',' time) ++ " hours, " ++
+        (prettyInt ',' (round dist)) ++ "km (" ++
+        (pretty 1 ',' speed) ++ " km/h)"
 
 
 endpointLine: String -> Ref EndpointSpec -> Result String Endpoint -> Html
