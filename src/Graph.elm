@@ -122,9 +122,6 @@ sunColorGL w h fp tmin tmax =
                 return vec3(r * cos(lon), r * sin(lon), sin(lat));
             }
 
-            //vec2 toLatLong : Location -> (Float, Float)
-            //toLatLong v = (asin (V3.getZ v), atan2 (V3.getY v) (V3.getX v))
-
             // great circle path between two locations, as a function on [0, 1]
             vec3 greatCircle(vec3 a, vec3 b, float x) {
                 if (a == b) return a;
@@ -144,18 +141,6 @@ sunColorGL w h fp tmin tmax =
                 return 2.0 * PI * (0.5 - fract(t));
             }
 
-            /*
-            // location at which the sun is directly overhead
-            vec3 sunDirection(float t) {
-                return fromLatLong(solarDeclination(t), solarNoonLongitude(t));
-            }
-
-            // angle of the sun above the horizon
-            float sunAltitude(vec3 pos, float t) {
-                return radians(90.0) - acos(dot(pos, sunDirection(t)));
-            }
-            */
-
             void main() {
                 float left2right = 0.5 * (1.0 + vpos.x);
                 float top2bottom = 0.5 * (1.0 - vpos.y);
@@ -167,25 +152,8 @@ sunColorGL w h fp tmin tmax =
                 vec3 relSunDirection = fromLatLong(solarDeclination(actualTime), solarNoonLongitude(localTime));
                 float sunAltitude = radians(90.0) - acos(dot(fromLatLong(latitude, 0.0), relSunDirection));
 
-                // float dim =
                 gl_FragColor = vec4(altitude2color(sunAltitude), 1.0);
             }
-
-            /*
-            // (longitude, actual time) -> local solar time (discontinuous across date line)
-            apparentTime : Float -> Time -> LocalTime
-            apparentTime long t =
-                -- TODO make this clearer
-                let oneDay = Time.hour * 24
-                    days = t / oneDay
-                    dayAtLong0 = floor days
-                    todAtLong0 = mod1 days
-                    longTurns = mod1 (long / (turns 1))
-                    dateOffset = floor (longTurns + todAtLong0) - floor (2 * longTurns)
-                in  LocalTime.fromTime (LocalTime.utc) (oneDay * (
-                            toFloat (dayAtLong0 + dateOffset) + (solarTimeOfDay long t)
-                        ))
-            */
         |]
 
         oneDay = 24 * Time.hour
