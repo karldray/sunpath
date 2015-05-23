@@ -5,6 +5,7 @@ import Math.Vector3 as V3 exposing (Vec3, vec3)
 import Time exposing (Time)
 
 
+-- we represent locations on the sphere as unit vectors
 type alias Location = Vec3
 
 
@@ -22,7 +23,7 @@ toLatLong : Location -> (Float, Float)
 toLatLong v = (asin (V3.getZ v), atan2 (V3.getY v) (V3.getX v))
 
 
--- great circle path as a function [0, 0]
+-- great circle path between two locations, as a function on [0, 1]
 greatCircle : Location -> Location -> Float -> Location
 greatCircle a b x = if a == b then a else
     let c = V3.normalize (V3.sub b (V3.scale (V3.dot a b) a))
