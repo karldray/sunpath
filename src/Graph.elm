@@ -6,8 +6,9 @@ import Graphics.Element exposing (..)
 import Graphics.Collage exposing (..)
 import LocalTime
 import Math.Vector2 exposing (Vec2, vec2)
-import Math.Vector3 exposing (Vec3)
+import Math.Vector3 exposing (Vec3, vec3)
 import Structs exposing (..)
+import Style
 import Time exposing (Time)
 import WebGL
 
@@ -28,31 +29,41 @@ sunAltitude w h fp =
 
         points = List.map (\x -> ((toFloat w) * (x - 0.5), yscale * (f x))) xvals
 
+        (w', h') = (toFloat w, toFloat h)
+
     in  collage w h [
-        rect (toFloat w) (toFloat h)
-            |> gradient (Color.linear (0, -20) (0, 20) [(0, Color.lightBlue), (1, Color.yellow)]),
+        rect w' h'
+            |> gradient (Color.linear (0, -0.5 * h') (0, 0.5 * h')
+                [ (0.0, Style.midnightColor)
+                , (0.5 - Style.colorStopAngle / pi, Style.darkColor)
+                , (0.5 + Style.colorStopAngle / pi, Style.lightColor)
+                , (1.0, Style.noonColor)
+                ]),
         traced (solid Color.black) (path points)
     ]
 
 apparentTime : Int -> Int -> FlightPath -> Element
 apparentTime w h fp =
-    let npoints = h // 2
-        xvals = List.map (\x -> (toFloat x) / (toFloat npoints)) [0..npoints]
+    let f x =
+            let (t, pos) = interpolate fp x
+                (lat, long) = Geometry.toLatLong pos
+            in  LocalTime.toTime LocalTime.utc (Geometry.apparentTime long t)
 
-        -- todo: better window size scaling
-        tmin = f 0 - 2 * Time.hour
-        tmax = f 1 + 2 * Time.hour
+        npoints = h // 2
+        xvals = List.map (\i -> (toFloat i) / (toFloat npoints)) [0..npoints]
+        tvals = List.map f xvals
+
+        (Just tmax') = List.maximum tvals
+        (Just tmin') = List.minimum tvals
+        range = tmax' - tmin'
+        tmax = tmax' + 0.1 * range
+        tmin = tmin' - 0.1 * range
         tmid = tmin + (tmax - tmin) / 2
 
         xscale = toFloat h
         tscale = toFloat w / (tmax - tmin)
 
-        f x =
-            let (t, pos) = interpolate fp x
-                (lat, long) = Geometry.toLatLong pos
-            in  LocalTime.toTime LocalTime.utc (Geometry.apparentTime long t)
-
-        points = List.map (\x -> (tscale * ((f x) - tmid), xscale * (0.5 - x))) xvals
+        points = List.map2 (\x t -> (tscale * (t - tmid), xscale * (0.5 - x))) xvals tvals
 
     in  flow outward [
         sunColorGL w h fp tmin tmax,
@@ -70,6 +81,12 @@ type alias Uniforms =
     , startTime: Float
     , endTime: Float
     , startTimeOfYear: Float
+
+    , midnightColor: Vec3
+    , darkColor: Vec3
+    , lightColor: Vec3
+    , noonColor: Vec3
+    , colorStopAngle: Float
     }
 
 sunColorGL : Int -> Int -> FlightPath -> Time -> Time -> Element
@@ -104,16 +121,22 @@ sunColorGL w h fp tmin tmax =
             uniform float endTime;
             uniform float startTimeOfYear;
 
+            uniform vec3 midnightColor;
+            uniform vec3 darkColor;
+            uniform vec3 lightColor;
+            uniform vec3 noonColor;
+            uniform float colorStopAngle;
+
             varying vec2 vpos;
 
             const float PI = 3.1415926535897932384626433832795;
 
             vec3 altitude2color(float alt) {
-                vec3 color = vec3(0.3, 0.3, 0.3);
-                float stop = 0.2;
-                color = mix(color, vec3(0.4, 0.5, 0.9), smoothstep(-0.5 * PI, -stop, alt));
-                color = mix(color, vec3(0.8, 0.7, 0.2), smoothstep(-stop, stop, alt));
-                color = mix(color, vec3(1.0, 1.0, 1.0), smoothstep(stop, PI * 0.5, alt));
+                vec3 color = midnightColor;
+                float stop = colorStopAngle;
+                color = mix(color, darkColor, smoothstep(-0.5 * PI, -stop, alt));
+                color = mix(color, lightColor, smoothstep(-stop, stop, alt));
+                color = mix(color, noonColor, smoothstep(stop, PI * 0.5, alt));
                 return color;
             }
 
@@ -160,6 +183,9 @@ sunColorGL w h fp tmin tmax =
         offsetDays = toFloat (floor (tmin / oneDay))
         days t = t / oneDay - offsetDays
 
+        toF x = (toFloat x) / 255.0
+        c2v = Color.toRgb >> \{red, green, blue} -> vec3 (toF red) (toF green) (toF blue)
+
         uniforms =
             { localTimeMin = days tmin
             , localTimeMax = days tmax
@@ -168,6 +194,12 @@ sunColorGL w h fp tmin tmax =
             , startPos = fp.start.airport.location
             , endPos   = fp.end.airport.location
             , startTimeOfYear = Geometry.timeOfYear fp.start.time
+
+            , midnightColor = c2v Style.midnightColor
+            , darkColor = c2v Style.darkColor
+            , lightColor = c2v Style.lightColor
+            , noonColor = c2v Style.noonColor
+            , colorStopAngle = Style.colorStopAngle
             }
 
     in  WebGL.webgl (w, h) [WebGL.entity vertexShader fragmentShader square uniforms]

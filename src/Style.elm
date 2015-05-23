@@ -1,5 +1,14 @@
 module Style where
 
+import Color exposing (rgb)
+
+midnightColor = rgb 75 75 75
+darkColor = rgb 100 125 230
+lightColor = rgb 200 180 50
+noonColor = rgb 255 255 255
+colorStopAngle = 0.2
+
+
 label =
     [ ("display", "inline-block")
     , ("width", "60px")
