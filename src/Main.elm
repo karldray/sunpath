@@ -33,7 +33,7 @@ examples =
             , path = {start = endpoint startA startT,
                       end   = endpoint endA endT}
             }
-    in  [ ex "MUC" "2014-10-29T15:50" "SFO" "2014-10-29T20:00" "rewind the sunset"
+    in  [ ex "SVO" "2014-10-29T16:50" "SFO" "2014-10-29T18:00" "rewind the sunset"
         , ex "MEX" "2015-05-15T12:00" "JAD" "2015-05-16T12:00" "follow the sun"
         , ex "BTU" "2015-05-15T08:00" "BOG" "2015-05-15T22:00" "repeat a day"
         ]
