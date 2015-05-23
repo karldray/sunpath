@@ -35,7 +35,7 @@ examples =
             }
     in  [ ex "MUC" "2014-10-29T15:50" "SFO" "2014-10-29T20:00" "rewind the sunset"
         , ex "MEX" "2015-05-15T12:00" "JAD" "2015-05-16T12:00" "follow the sun"
-        , ex "JAD" "2015-05-15T08:00" "BOG" "2015-05-15T22:00" "repeat a day"
+        , ex "BTU" "2015-05-15T08:00" "BOG" "2015-05-15T22:00" "repeat a day"
         ]
 -- format "%Y-%m-%d %H:%M"
 
@@ -61,6 +61,9 @@ port run = Http.get Airports.decoder "airports.json" `andThen` Signal.send airpo
 
 
 -- view
+
+port title : String
+port title = "Sunpath"
 
 view : List Airport -> Ref Model -> Html
 view airports model =

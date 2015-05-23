@@ -31,14 +31,16 @@ greatCircle a b x = if a == b then a else
     in  V3.add (V3.scale (cos m) a) (V3.scale (sin m) c)
 
 
+-- time of year as a float in [0, 1) with summer solstices at 0 and 1
+timeOfYear : Time -> Float
+timeOfYear t =
+    let summerSolstice2015 = 1434904680 * Time.second
+    in  mod1 <| (t - summerSolstice2015) / (Time.hour * 24 * 365)
+
 -- latitude at which the sun is directly overhead (annual cycle)
 solarDeclination : Time -> Float
 solarDeclination t =
-    let
-        summerSolstice2015 = 1434904680 * Time.second
-        years = (t - summerSolstice2015) / (Time.hour * 24 * 365)
-    in
-        degrees 23.44 * cos (turns years)
+    degrees 23.44 * cos (turns (timeOfYear t))
 
 -- longitude at which the sun is directly overhead (daily cycle)
 solarNoonLongitude : Time -> Float
@@ -56,7 +58,7 @@ sunAltitude pos t =
     (degrees 90) - acos (V3.dot pos (sunDirection t))
 
 
--- longitude -> actual time -> apparent time of day as a float in [0, 1]
+-- longitude -> actual time -> apparent time of day as a float in [0, 1)
 solarTimeOfDay : Float -> Time -> Float
 solarTimeOfDay long t =
     let longDiff = long - solarNoonLongitude t
