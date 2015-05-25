@@ -2,9 +2,9 @@ module Style where
 
 import Color exposing (rgb)
 
-midnightColor = rgb 75 75 75
-darkColor = rgb 100 125 230
-lightColor = rgb 200 180 50
+midnightColor = rgb 50 50 50
+darkColor = rgb 100 150 200
+lightColor = rgb 255 230 150
 noonColor = rgb 255 255 255
 colorStopAngle = 0.2
 

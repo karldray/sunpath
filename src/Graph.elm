@@ -10,6 +10,7 @@ import Math.Vector3 exposing (Vec3, vec3)
 import Structs exposing (..)
 import Style
 import Time exposing (Time)
+import Util
 import WebGL
 
 
@@ -183,10 +184,7 @@ sunColorGL w h fp tmin tmax =
         offsetDays = toFloat (floor (tmin / oneDay))
         days t = t / oneDay - offsetDays
 
-        toF x = (toFloat x) / 255.0
-        c2v = Color.toRgb >> \{red, green, blue} -> vec3 (toF red) (toF green) (toF blue)
-
-        uniforms =
+        uniforms = Util.addColorUniforms
             { localTimeMin = days tmin
             , localTimeMax = days tmax
             , startTime = days fp.start.time
@@ -194,12 +192,6 @@ sunColorGL w h fp tmin tmax =
             , startPos = fp.start.airport.location
             , endPos   = fp.end.airport.location
             , startTimeOfYear = Geometry.timeOfYear fp.start.time
-
-            , midnightColor = c2v Style.midnightColor
-            , darkColor = c2v Style.darkColor
-            , lightColor = c2v Style.lightColor
-            , noonColor = c2v Style.noonColor
-            , colorStopAngle = Style.colorStopAngle
             }
 
     in  WebGL.webgl (w, h) [WebGL.entity vertexShader fragmentShader square uniforms]

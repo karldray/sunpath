@@ -2,6 +2,7 @@ module Main where
 
 import Airports exposing (Airport)
 import Geometry
+import Globe
 import Graph
 import Html as H exposing (Html)
 import Html.Events as E
@@ -17,6 +18,8 @@ import Structs exposing (..)
 import Style as S
 import Task exposing (Task, andThen)
 import Time
+import Util
+import WebGL
 
 
 endpoint : EndpointSpec -> List Airport -> Result String Endpoint
@@ -51,16 +54,24 @@ initialModel : Model
 initialModel = {path = (let head (x::_) = x in head examples).path}
 
 main : Signal Html
-main = view <~ airports.signal ~ Ref.new initialModel
+main = view <~ texture.signal ~ airports.signal ~ Ref.new initialModel
 
 
--- load airports. todo : handle errors
 
 airports : Mailbox (List Airport)
 airports = mailbox []
 
-port run : Task Http.Error ()
-port run = Http.get Airports.decoder "airports.json" `andThen` Signal.send airports.address
+port run1 : Task Http.Error ()
+port run1 = Util.logError "load airports" <|
+    Http.get Airports.decoder "airports.json" `andThen` Signal.send airports.address
+
+
+texture : Mailbox (Maybe WebGL.Texture)
+texture = mailbox Nothing
+
+port run2 : Task WebGL.Error ()
+port run2 = Util.logError "load texture" <|
+    WebGL.loadTexture "world.jpg" `andThen` (Signal.send texture.address << Just)
 
 
 -- view
@@ -68,8 +79,8 @@ port run = Http.get Airports.decoder "airports.json" `andThen` Signal.send airpo
 port title : String
 port title = "Sunpath"
 
-view : List Airport -> Ref Model -> Html
-view airports model =
+view : Maybe WebGL.Texture -> List Airport -> Ref Model -> Html
+view tex airports model =
     let pathSpec = Ref.map pathField model
 
         exampleButton e = H.button [E.onClick (Ref.set pathSpec) e.path] [H.text e.name]
@@ -83,6 +94,11 @@ view airports model =
 
             endpointLine "Start:" (Ref.map startField pathSpec) startR,
             endpointLine "End:"   (Ref.map endField   pathSpec) endR,
+
+            case tex of
+                Just t -> H.fromElement <| Globe.globe 300 300 t
+                Nothing -> H.text "loading texture for globe..."
+            ,
 
             case pathR of
                 Ok path ->
@@ -99,6 +115,7 @@ graphs path = H.div []
     , H.text "Local solar time:"
     , H.fromElement <| Graph.apparentTime 600 400 path
     ]
+
 
 stats : FlightPath -> String
 stats path = -- todo: pretty time deltas, miles
