@@ -20,14 +20,17 @@ import Style as S
 import Task exposing (Task, andThen)
 import Time
 import Util
-import WebGL
+import WebGL exposing (Texture)
 
 
 endpoint : EndpointSpec -> List Airport -> Result String Endpoint
 endpoint spec airports =
-    let airportR = Result.fromMaybe "No matching airports found." (List.head (Airports.search spec.airport airports))
-        timeR = Result.formatError (always "Specify a time.") (LocalTime.fromString spec.time)
-    in  Result.map2 (\a t -> {airport = a, time = LocalTime.toTime a.timezone t}) airportR timeR
+    let airportR = Result.fromMaybe "No matching airports found."
+                        (List.head (Airports.search spec.airport airports))
+        timeR = Result.formatError (always "Specify a time.")
+                    (LocalTime.fromString spec.time)
+        makePath a t = {airport = a, time = LocalTime.toTime a.timezone t}
+    in  Result.map2 makePath airportR timeR
 
 
 type alias Example = {name: String, path: FlightPathSpec}
@@ -67,7 +70,8 @@ animPos : Signal (Ref Float)
 animPos = Ref.new 0
 
 port run0 : Signal (Task () ())
-port run0 = Util.applyUpdates animPos <| (\dt pos -> Util.mod1 (pos + 0.1 * Time.inSeconds dt)) <~ Time.fps 10
+port run0 = Util.applyUpdates animPos <|
+    (\dt pos -> Util.mod1 (pos + 0.2 * Time.inSeconds dt)) <~ Time.fps 10
 
 
 airports : Mailbox (List Airport)
@@ -94,7 +98,7 @@ port title = "Sunpath"
 main : Signal Html
 main = view <~ texture.signal ~ airports.signal ~ model ~ animPos
 
-view : Maybe WebGL.Texture -> List Airport -> Ref Model -> Ref Float -> Html
+view : Maybe Texture -> List Airport -> Ref Model -> Ref Float -> Html
 view texture airports model =
     let pathSpec = Ref.map pathField model
 
@@ -104,8 +108,7 @@ view texture airports model =
         endR   = endpoint pathSpec.value.end   airports
         pathR = Result.map2 FlightPath startR endR
 
-    in  -- writing it this way prevents recomputing
-        -- pathR (airport lookup) on every animation tick.
+    in  -- avoid repeating the airport lookup on every animation tick
         \animPos ->
             H.div [] [
                 H.div [] (List.map exampleButton examples),
@@ -113,21 +116,20 @@ view texture airports model =
                 endpointLine "Start:" (Ref.map startField pathSpec) startR,
                 endpointLine "End:"   (Ref.map endField   pathSpec) endR,
 
-                case texture of
-                    Just t -> H.fromElement <| Globe.globe 300 300 t animPos.value
-                    Nothing -> H.text "loading texture for globe..."
-                ,
-
                 case pathR of
                     Ok path ->
-                        if | path.start.time > path.end.time -> H.text "End time is before start time!"
-                           | otherwise -> graphs path
+                        if | path.start.time > path.end.time ->
+                                H.text "End time is before start time!"
+                           | otherwise -> graphs path texture animPos.value
                     _ -> H.text "No graphs to show."
             ]
 
-graphs : FlightPath -> Html
-graphs path = H.div []
+graphs : FlightPath -> Maybe Texture -> Float -> Html
+graphs path texture animPos = H.div []
     [ H.div [] [H.text (stats path)]
+    , case texture of
+        Nothing -> H.text "loading texture for globe..."
+        Just t -> H.fromElement <| Globe.globe 300 300 t path animPos
     , H.text "Sun altitude:"
     , H.fromElement <| Graph.sunAltitude 500 200 path
     , H.text "Local solar time:"

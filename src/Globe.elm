@@ -4,6 +4,7 @@ import Graphics.Element exposing (Element)
 import Math.Vector2 as V2 exposing (Vec2)
 import Math.Vector3 as V3 exposing (Vec3, vec3)
 import Math.Matrix4 as M4 exposing (Mat4)
+import Structs exposing (..)
 import Util
 import WebGL exposing (Texture, Triangle, entity, webgl)
 
@@ -39,9 +40,15 @@ tessellate n xs =
     if | n <= 0 -> xs
        | otherwise -> tessellate (n - 1) (tessellateOnce xs)
 
+{-
 doubleSided : List (Triangle t) -> List (Triangle t)
 doubleSided xs =
     xs ++ List.map (\(a, b, c) -> (c, b, a)) xs
+-}
+
+sphereData : List (Triangle {pos: Vec3})
+sphereData = List.map (WebGL.map (\v -> {pos = v})) (tessellate 3 dodecahedron)
+
 
 
 type alias Uniforms = Util.WithColorUniforms
@@ -50,81 +57,84 @@ type alias Uniforms = Util.WithColorUniforms
     , tex: Texture
     }
 
-globe : Int -> Int -> Texture -> Float -> Element
-globe w h tex t =
+vertexShader : WebGL.Shader {pos:Vec3} {u|view:Mat4} {vpos:Vec3}
+vertexShader = [glsl|
+    precision mediump float;
+
+    attribute vec3 pos;
+    uniform mat4 view;
+    varying vec3 vpos;
+
+    void main() {
+        vpos = normalize(pos);
+        gl_Position = view * vec4(vpos, 1.0);
+    }
+|]
+
+fragmentShader : WebGL.Shader {} Uniforms {vpos:Vec3}
+fragmentShader = [glsl|
+    precision mediump float;
+
+    uniform vec3 midnightColor;
+    uniform vec3 darkColor;
+    uniform vec3 lightColor;
+    uniform vec3 noonColor;
+    uniform float colorStopAngle;
+
+    uniform vec3 sunDirection;
+    uniform sampler2D tex;
+    varying vec3 vpos;
+
+    const float PI = 3.1415926535897932384626433832795;
+
+    // todo: figure out a way to avoid copying logic among shaders
+    vec3 altitude2color(float alt) {
+        vec3 color = midnightColor;
+        float stop = colorStopAngle;
+        color = mix(color, darkColor, smoothstep(-0.5 * PI, -stop, alt));
+        color = mix(color, lightColor, smoothstep(-stop, stop, alt));
+        color = mix(color, noonColor, smoothstep(stop, PI * 0.5, alt));
+        return color;
+    }
+
+    void main() {
+        float latitude = asin(vpos.z);
+        float longitude = atan(vpos.y, vpos.x);
+
+        float mapColor = texture2D(tex, vec2(
+            0.5 + longitude / (2.0 * PI),
+            0.5 + latitude / PI
+        )).r;
+
+        float alt = radians(90.0) - acos(dot(sunDirection, vpos));
+        vec3 sunColor = altitude2color(alt);
+
+        vec3 ret = mix(vec3(0.0), sunColor, 1.0 - mapColor);
+
+        gl_FragColor = vec4(ret, 1.0);
+    }
+|]
+
+
+globe : Int -> Int -> Texture -> FlightPath -> Float -> Element
+globe w h tex path =
     let 
         aspectRatio = toFloat w / toFloat h
-        -- perspective = M4.makePerspective 45 aspectRatio 0.01 100
         perspective = M4.makeOrtho -aspectRatio aspectRatio -1 1 0.01 100
-        camera = M4.makeLookAt
-            (vec3 (2 * cos (turns t)) (2 * sin (turns t)) 2)
-            (vec3 0 0 0)
-            V3.k
-        view = M4.mul perspective camera
+        -- perspective = M4.makePerspective 45 aspectRatio 0.01 100
 
-        vertexShader : WebGL.Shader {pos:Vec3} {u|view:Mat4} {vpos:Vec3}
-        vertexShader = [glsl|
-            precision mediump float;
+    in  \animPos ->
+        let t = animPos
+            camera = M4.makeLookAt
+                (vec3 (2 * cos (turns t)) (2 * sin (turns t)) 2)
+                (vec3 0 0 0)
+                V3.k
+            view = M4.mul perspective camera
 
-            attribute vec3 pos;
-            uniform mat4 view;
-            varying vec3 vpos;
-            
-            void main() {
-                vpos = normalize(pos);
-                gl_Position = view * vec4(vpos, 1.0);
-            }
-        |]
-
-        fragmentShader : WebGL.Shader {} Uniforms {vpos:Vec3}
-        fragmentShader = [glsl|
-            precision mediump float;
-
-            uniform vec3 midnightColor;
-            uniform vec3 darkColor;
-            uniform vec3 lightColor;
-            uniform vec3 noonColor;
-            uniform float colorStopAngle;
-
-            uniform vec3 sunDirection;
-            uniform sampler2D tex;
-            varying vec3 vpos;
-
-            const float PI = 3.1415926535897932384626433832795;
-
-            // todo: figure out a way to avoid copying logic among shaders
-            vec3 altitude2color(float alt) {
-                vec3 color = midnightColor;
-                float stop = colorStopAngle;
-                color = mix(color, darkColor, smoothstep(-0.5 * PI, -stop, alt));
-                color = mix(color, lightColor, smoothstep(-stop, stop, alt));
-                color = mix(color, noonColor, smoothstep(stop, PI * 0.5, alt));
-                return color;
-            }
-
-            void main() {
-                float latitude = asin(vpos.z);
-                float longitude = atan(vpos.y, vpos.x);
-
-                float mapColor = texture2D(tex, vec2(
-                    0.5 + longitude / (2.0 * PI),
-                    0.5 + latitude / PI
-                )).r;
-
-                float alt = radians(90.0) - acos(dot(sunDirection, vpos));
-                vec3 sunColor = altitude2color(alt);
-
-                vec3 ret = mix(vec3(0.0), sunColor, 1.0 - mapColor);
-
-                gl_FragColor = vec4(ret, 1.0);
-            }
-        |]
-
-        uniforms = Util.addColorUniforms
-            { view = view
-            , tex = tex
-            , sunDirection = vec3 (cos (2 * turns t)) (sin (2 * turns t)) 0
-            }
-            
-        data = List.map (WebGL.map (\v -> {pos = v})) (tessellate 3 dodecahedron)
-    in  webgl (w, h) [entity vertexShader fragmentShader data uniforms]
+            uniforms = Util.addColorUniforms
+                { view = view
+                , tex = tex
+                , sunDirection = vec3 (cos (2 * turns t)) (sin (2 * turns t)) 0
+                }
+                
+        in  webgl (w, h) [entity vertexShader fragmentShader sphereData uniforms]
