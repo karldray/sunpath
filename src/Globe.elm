@@ -113,7 +113,7 @@ sphereFragmentShader = [glsl|
         float alt = radians(90.0) - acos(dot(sunDirection, vpos));
         vec3 sunColor = altitude2color(alt);
 
-        vec3 ret = mix(vec3(0.0), sunColor, 1.0 - mapColor);
+        vec3 ret = mix(vec3(0.0), sunColor, 0.8 + 0.2 * mapColor);
 
         gl_FragColor = vec4(ret, 1.0);
     }
