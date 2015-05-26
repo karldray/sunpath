@@ -3,12 +3,22 @@ module Util where
 import Color exposing (Color)
 import Debug
 import Math.Vector3 exposing (Vec3, vec3)
+import Ref exposing (Ref)
 import Style
 import Task exposing (Task)
 
 
+
+mod1: Float -> Float
+mod1 x = x - toFloat (floor x)
+
+
 logError : String -> Task x a -> Task x a
 logError s t = Task.onError t (Debug.log s >> Task.fail)
+
+
+applyUpdates : Signal (Ref t) -> Signal (t -> t) -> Signal (Task () ())
+applyUpdates r u = Signal.sampleOn u (Signal.map2 (Signal.send << Ref.transform) r u)
 
 
 colorToVec3 : Color -> Vec3

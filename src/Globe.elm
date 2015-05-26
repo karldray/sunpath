@@ -50,13 +50,16 @@ type alias Uniforms = Util.WithColorUniforms
     , tex: Texture
     }
 
-globe : Int -> Int -> Texture -> Element
-globe w h tex =
+globe : Int -> Int -> Texture -> Float -> Element
+globe w h tex t =
     let 
-        aspectRatio = (toFloat w / toFloat h)
+        aspectRatio = toFloat w / toFloat h
         -- perspective = M4.makePerspective 45 aspectRatio 0.01 100
         perspective = M4.makeOrtho -aspectRatio aspectRatio -1 1 0.01 100
-        camera = M4.makeLookAt (vec3 2 2 2) (vec3 0 0 0) V3.k
+        camera = M4.makeLookAt
+            (vec3 (2 * cos (turns t)) (2 * sin (turns t)) 2)
+            (vec3 0 0 0)
+            V3.k
         view = M4.mul perspective camera
 
         vertexShader : WebGL.Shader {pos:Vec3} {u|view:Mat4} {vpos:Vec3}
@@ -120,9 +123,8 @@ globe w h tex =
         uniforms = Util.addColorUniforms
             { view = view
             , tex = tex
-            , sunDirection = vec3 1 0 0
+            , sunDirection = vec3 (cos (2 * turns t)) (sin (2 * turns t)) 0
             }
             
-        data = List.map (WebGL.map (\v -> {pos = v})) (tessellate 4 dodecahedron)
+        data = List.map (WebGL.map (\v -> {pos = v})) (tessellate 3 dodecahedron)
     in  webgl (w, h) [entity vertexShader fragmentShader data uniforms]
-

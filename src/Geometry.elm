@@ -3,14 +3,12 @@ module Geometry where
 import LocalTime exposing (LocalTime)
 import Math.Vector3 as V3 exposing (Vec3, vec3)
 import Time exposing (Time)
+import Util exposing (mod1)
 
 
 -- represent locations on the sphere as unit vectors
 type alias Location = Vec3
 
-
-mod1: Float -> Float
-mod1 x = x - toFloat (floor x)
 
 -- in km
 distance : Location -> Location -> Float

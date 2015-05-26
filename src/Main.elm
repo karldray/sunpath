@@ -1,6 +1,7 @@
 module Main where
 
 import Airports exposing (Airport)
+import Debug
 import Geometry
 import Globe
 import Graph
@@ -43,19 +44,30 @@ examples =
         , ex "MEX" "2015-05-15T12:00" "JAD" "2015-05-16T12:00" "follow the sun"
         , ex "BTU" "2015-05-15T08:00" "BOG" "2015-05-15T22:00" "repeat a day"
         ]
--- format "%Y-%m-%d %H:%M"
+-- format "%Y-%m-%dT%H:%M"
 
 
-type alias Model = {path: FlightPathSpec}
+type alias Model =
+    { path: FlightPathSpec
+    }
 
 pathField = Ref.focus .path (\x m -> {m | path <- x})
 
+
 initialModel : Model
-initialModel = {path = (let head (x::_) = x in head examples).path}
+initialModel =
+    { path = (let head (x::_) = x in head examples).path
+    }
 
-main : Signal Html
-main = view <~ texture.signal ~ airports.signal ~ Ref.new initialModel
+model : Signal (Ref Model)
+model = Ref.new initialModel
 
+
+animPos : Signal (Ref Float)
+animPos = Ref.new 0
+
+port run0 : Signal (Task () ())
+port run0 = Util.applyUpdates animPos <| (\dt pos -> Util.mod1 (pos + 0.1 * Time.inSeconds dt)) <~ Time.fps 10
 
 
 airports : Mailbox (List Airport)
@@ -79,8 +91,11 @@ port run2 = Util.logError "load texture" <|
 port title : String
 port title = "Sunpath"
 
-view : Maybe WebGL.Texture -> List Airport -> Ref Model -> Html
-view tex airports model =
+main : Signal Html
+main = view <~ texture.signal ~ airports.signal ~ model ~ animPos
+
+view : Maybe WebGL.Texture -> List Airport -> Ref Model -> Ref Float -> Html
+view texture airports model =
     let pathSpec = Ref.map pathField model
 
         exampleButton e = H.button [E.onClick (Ref.set pathSpec) e.path] [H.text e.name]
@@ -89,23 +104,26 @@ view tex airports model =
         endR   = endpoint pathSpec.value.end   airports
         pathR = Result.map2 FlightPath startR endR
 
-    in  H.div [] [
-            H.div [] (List.map exampleButton examples),
+    in  -- writing it this way prevents recomputing
+        -- pathR (airport lookup) on every animation tick.
+        \animPos ->
+            H.div [] [
+                H.div [] (List.map exampleButton examples),
 
-            endpointLine "Start:" (Ref.map startField pathSpec) startR,
-            endpointLine "End:"   (Ref.map endField   pathSpec) endR,
+                endpointLine "Start:" (Ref.map startField pathSpec) startR,
+                endpointLine "End:"   (Ref.map endField   pathSpec) endR,
 
-            case tex of
-                Just t -> H.fromElement <| Globe.globe 300 300 t
-                Nothing -> H.text "loading texture for globe..."
-            ,
+                case texture of
+                    Just t -> H.fromElement <| Globe.globe 300 300 t animPos.value
+                    Nothing -> H.text "loading texture for globe..."
+                ,
 
-            case pathR of
-                Ok path ->
-                    if | path.start.time > path.end.time -> H.text "End time is before start time!"
-                       | otherwise -> graphs path
-                _ -> H.text "No graphs to show."
-        ]
+                case pathR of
+                    Ok path ->
+                        if | path.start.time > path.end.time -> H.text "End time is before start time!"
+                           | otherwise -> graphs path
+                    _ -> H.text "No graphs to show."
+            ]
 
 graphs : FlightPath -> Html
 graphs path = H.div []
