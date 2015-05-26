@@ -21,15 +21,6 @@ type alias Uniforms = Util.WithColorUniforms
     , startTimeOfYear: Float
     }
 
-square : List (Triangle {pos: Vec2})
-square =
-    let vtx x y = {pos = vec2 x y}
-        a = vtx -1  1
-        b = vtx  1  1
-        c = vtx  1 -1
-        d = vtx -1 -1
-    in  [(a, b, c), (c, d, a)]
-
 vertexShader : Shader {pos:Vec2} u {vpos:Vec2}
 vertexShader = [glsl|
     precision mediump float;
@@ -128,5 +119,5 @@ sunColorGL w h fp tmin tmax =
             , startTimeOfYear = Geometry.timeOfYear fp.start.time
             }
 
-    in  webgl (w, h) [WebGL.entity vertexShader fragmentShader square uniforms]
+    in  webgl (w, h) [WebGL.entity vertexShader fragmentShader Util.squareData uniforms]
 

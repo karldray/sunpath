@@ -6,10 +6,12 @@ import Graph.Util exposing (interpolate)
 import Graphics.Element exposing (..)
 import Graphics.Collage exposing (..)
 import LocalTime
+import MapBackground exposing (mapBackground)
 import Structs exposing (..)
 import Style
 import SunColorGL exposing (sunColorGL)
 import Util
+import WebGL exposing (Texture)
 
 
 sunAltitude : Int -> Int -> FlightPath -> Element
@@ -64,3 +66,31 @@ apparentTime w h fp =
             traced (solid Color.black) (path points)
         ]
     ]
+
+flatMap : Int -> Texture -> FlightPath -> Float -> Element
+flatMap h tex fp =
+    let
+        scale = toFloat h / pi
+        f = interpolate fp >> snd >> Geometry.toLatLong >>
+                \(lat, long) -> (scale * long, scale * lat)
+
+        npoints = round <| 0.01 *
+            Geometry.distance fp.start.airport.location fp.end.airport.location
+
+        step = 1.0 / toFloat npoints
+        points = List.map (toFloat >> (*) step >> f) [0..npoints]
+
+        pathArc = traced (solid Color.black) (path points)
+    in
+        \animPos ->
+            let
+                (t, pos) = interpolate fp animPos
+                sunDirection = Geometry.sunDirection t
+            in
+                flow outward
+                    [ mapBackground h tex sunDirection
+                    , collage (2 * h) h
+                        [ pathArc
+                        --, circle 5 |> move ...
+                        ]
+                    ]

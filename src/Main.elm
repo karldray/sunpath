@@ -45,7 +45,7 @@ examples =
             }
     in  [ ex "SVO" "2014-10-29T16:50" "SFO" "2014-10-29T18:00" "rewind the sunset"
         , ex "MEX" "2015-05-15T12:00" "JAD" "2015-05-16T12:00" "follow the sun"
-        , ex "BTU" "2015-05-15T08:00" "BOG" "2015-05-15T22:00" "repeat a day"
+        , ex "BTU" "2015-05-15T08:00" "UIO" "2015-05-15T22:00" "repeat a day"
         ]
 -- format "%Y-%m-%dT%H:%M"
 
@@ -71,7 +71,7 @@ animPos = Ref.new 0
 
 port run0 : Signal (Task () ())
 port run0 = Util.applyUpdates animPos <|
-    (\dt pos -> Util.mod1 (pos + 0.2 * Time.inSeconds dt)) <~ Time.fps 10
+    (\dt pos -> Util.mod1 (pos + 0.2 * Time.inSeconds dt)) <~ Time.fps 30
 
 
 airports : Mailbox (List Airport)
@@ -129,11 +129,14 @@ graphs path texture animPos = H.div []
     [ H.div [] [H.text (stats path)]
     , case texture of
         Nothing -> H.text "loading texture for globe..."
-        Just t -> H.fromElement <| Globe.globe 300 300 t path animPos
+        Just t -> H.div []
+            [ H.fromElement <| Globe.globe 300 t path animPos
+            , H.fromElement <| Graph.flatMap 200 t path animPos
+            ]
     , H.text "Sun altitude:"
     , H.fromElement <| Graph.sunAltitude 500 200 path
     , H.text "Local solar time:"
-    , H.fromElement <| Graph.apparentTime 600 400 path
+    , H.fromElement <| Graph.apparentTime 400 500 path
     ]
 
 

@@ -55,6 +55,11 @@ sphereData : List (Triangle {pos: Vec3})
 sphereData = wrap (tessellate 3 dodecahedron)
 
 
+perspective : Mat4
+perspective = M4.makeOrtho -1 1 -1 1 0.01 100
+-- perspective = M4.makePerspective 45 aspectRatio 0.01 100
+
+
 type alias Uniforms = Util.WithColorUniforms
     { sunDirection: Vec3
     , view: Mat4
@@ -141,39 +146,33 @@ planeData : List (Triangle {pos: Vec3})
 planeData = wrap [((vec3 0 1 1), (vec3 1 -1 1), (vec3 -1 -1 1))]
 
 
-globe : Int -> Int -> Texture -> FlightPath -> Float -> Element
-globe w h tex path =
-    let 
-        aspectRatio = toFloat w / toFloat h
-        perspective = M4.makeOrtho -aspectRatio aspectRatio -1 1 0.01 100
-        -- perspective = M4.makePerspective 45 aspectRatio 0.01 100
+globe : Int -> Texture -> FlightPath -> Float -> Element
+globe size tex path x =
+    let (t, pos) = interpolate path x
 
-    in  \x ->
-        let (t, pos) = interpolate path x
+        (lat, long) = Geometry.toLatLong pos
+        camera = V3.scale 10 (Geometry.fromLatLong (0.5 * lat) long)
+        cameraMatrix = M4.makeLookAt camera (vec3 0 0 0) V3.k
+        view = M4.mul perspective cameraMatrix
 
-            (lat, long) = Geometry.toLatLong pos
-            camera = V3.scale 10 (Geometry.fromLatLong (0.5 * lat) long)
-            cameraMatrix = M4.makeLookAt camera (vec3 0 0 0) V3.k
-            view = M4.mul perspective cameraMatrix
+        sphereUniforms = Util.addColorUniforms
+            { view = view
+            , tex = tex
+            , sunDirection = Geometry.sunDirection t
+            }
 
-            sphereUniforms = Util.addColorUniforms
-                { view = view
-                , tex = tex
-                , sunDirection = Geometry.sunDirection t
-                }
+        end = path.end.airport.location
+        dir = V3.normalize <| V3.sub end <| V3.scale (V3.dot pos end) pos
+        right = V3.negate <| V3.cross pos dir
 
-            end = path.end.airport.location
-            dir = V3.normalize <| V3.sub end <| V3.scale (V3.dot pos end) pos
-            right = V3.negate <| V3.cross pos dir
-
-            planeTransform = List.foldr M4.mul M4.identity
-                [ view
-                , M4.makeBasis right dir pos
-                , M4.makeTranslate3 0 0 1
-                , M4.makeScale3 0.03 0.03 0.03
-                ]
-
-        in  webgl (w, h)
-            [ entity sphereVertexShader sphereFragmentShader sphereData sphereUniforms
-            , entity simpleVertexShader blackFragmentShader planeData {view = planeTransform}
+        planeTransform = List.foldr M4.mul M4.identity
+            [ view
+            , M4.makeBasis right dir pos
+            , M4.makeTranslate3 0 0 1
+            , M4.makeScale3 0.03 0.03 0.03
             ]
+
+    in  webgl (size, size)
+        [ entity sphereVertexShader sphereFragmentShader sphereData sphereUniforms
+        , entity simpleVertexShader blackFragmentShader planeData {view = planeTransform}
+        ]

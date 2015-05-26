@@ -2,11 +2,12 @@ module Util where
 
 import Color exposing (Color)
 import Debug
+import Math.Vector2 exposing (Vec2, vec2)
 import Math.Vector3 exposing (Vec3, vec3)
 import Ref exposing (Ref)
 import Style
 import Task exposing (Task)
-
+import WebGL exposing (Triangle)
 
 
 mod1: Float -> Float
@@ -42,3 +43,13 @@ addColorUniforms r =
         r4 = {r3 | noonColor = c2v Style.noonColor}
         r5 = {r4 | colorStopAngle = Style.colorStopAngle}
     in  r5
+
+
+squareData : List (Triangle {pos: Vec2})
+squareData =
+    let vtx x y = {pos = vec2 x y}
+        a = vtx -1  1
+        b = vtx  1  1
+        c = vtx  1 -1
+        d = vtx -1 -1
+    in  [(a, b, c), (c, d, a)]
