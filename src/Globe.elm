@@ -1,12 +1,14 @@
 module Globe where
 
+import Geometry
+import Graph.Util exposing (interpolate)
 import Graphics.Element exposing (Element)
 import Math.Vector2 as V2 exposing (Vec2)
 import Math.Vector3 as V3 exposing (Vec3, vec3)
 import Math.Matrix4 as M4 exposing (Mat4)
 import Structs exposing (..)
 import Util
-import WebGL exposing (Texture, Triangle, entity, webgl)
+import WebGL exposing (Shader, Texture, Triangle, entity, webgl)
 
 
 dodecahedron : List (Triangle Vec3)
@@ -46,9 +48,11 @@ doubleSided xs =
     xs ++ List.map (\(a, b, c) -> (c, b, a)) xs
 -}
 
-sphereData : List (Triangle {pos: Vec3})
-sphereData = List.map (WebGL.map (\v -> {pos = v})) (tessellate 3 dodecahedron)
+wrap : List (Triangle Vec3) -> List (Triangle {pos: Vec3})
+wrap = List.map (WebGL.map (\v -> {pos = v}))
 
+sphereData : List (Triangle {pos: Vec3})
+sphereData = wrap (tessellate 3 dodecahedron)
 
 
 type alias Uniforms = Util.WithColorUniforms
@@ -57,8 +61,8 @@ type alias Uniforms = Util.WithColorUniforms
     , tex: Texture
     }
 
-vertexShader : WebGL.Shader {pos:Vec3} {u|view:Mat4} {vpos:Vec3}
-vertexShader = [glsl|
+sphereVertexShader : Shader {pos:Vec3} {u|view:Mat4} {vpos:Vec3}
+sphereVertexShader = [glsl|
     precision mediump float;
 
     attribute vec3 pos;
@@ -71,8 +75,8 @@ vertexShader = [glsl|
     }
 |]
 
-fragmentShader : WebGL.Shader {} Uniforms {vpos:Vec3}
-fragmentShader = [glsl|
+sphereFragmentShader : Shader {} Uniforms {vpos:Vec3}
+sphereFragmentShader = [glsl|
     precision mediump float;
 
     uniform vec3 midnightColor;
@@ -115,6 +119,27 @@ fragmentShader = [glsl|
     }
 |]
 
+simpleVertexShader : Shader {pos: Vec3} {view: Mat4} {}
+simpleVertexShader = [glsl|
+    precision mediump float;
+    attribute vec3 pos;
+    uniform mat4 view;
+    void main() {
+        gl_Position = view * vec4(pos, 1.0);
+    }
+|]
+
+blackFragmentShader : Shader {} u {}
+blackFragmentShader = [glsl|
+    precision mediump float;
+    void main() {
+        gl_FragColor = vec4(vec3(0.0), 1.0);
+    }
+|]
+
+planeData : List (Triangle {pos: Vec3})
+planeData = wrap [((vec3 0 1 1), (vec3 1 -1 1), (vec3 -1 -1 1))]
+
 
 globe : Int -> Int -> Texture -> FlightPath -> Float -> Element
 globe w h tex path =
@@ -123,18 +148,32 @@ globe w h tex path =
         perspective = M4.makeOrtho -aspectRatio aspectRatio -1 1 0.01 100
         -- perspective = M4.makePerspective 45 aspectRatio 0.01 100
 
-    in  \animPos ->
-        let t = animPos
-            camera = M4.makeLookAt
-                (vec3 (2 * cos (turns t)) (2 * sin (turns t)) 2)
-                (vec3 0 0 0)
-                V3.k
-            view = M4.mul perspective camera
+    in  \x ->
+        let (t, pos) = interpolate path x
 
-            uniforms = Util.addColorUniforms
+            (lat, long) = Geometry.toLatLong pos
+            camera = V3.scale 10 (Geometry.fromLatLong (0.5 * lat) long)
+            cameraMatrix = M4.makeLookAt camera (vec3 0 0 0) V3.k
+            view = M4.mul perspective cameraMatrix
+
+            sphereUniforms = Util.addColorUniforms
                 { view = view
                 , tex = tex
-                , sunDirection = vec3 (cos (2 * turns t)) (sin (2 * turns t)) 0
+                , sunDirection = Geometry.sunDirection t
                 }
-                
-        in  webgl (w, h) [entity vertexShader fragmentShader sphereData uniforms]
+
+            end = path.end.airport.location
+            dir = V3.normalize <| V3.sub end <| V3.scale (V3.dot pos end) pos
+            right = V3.negate <| V3.cross pos dir
+
+            planeTransform = List.foldr M4.mul M4.identity
+                [ view
+                , M4.makeBasis right dir pos
+                , M4.makeTranslate3 0 0 1
+                , M4.makeScale3 0.03 0.03 0.03
+                ]
+
+        in  webgl (w, h)
+            [ entity sphereVertexShader sphereFragmentShader sphereData sphereUniforms
+            , entity simpleVertexShader blackFragmentShader planeData {view = planeTransform}
+            ]

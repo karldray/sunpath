@@ -8,7 +8,7 @@ import Math.Vector3 exposing (Vec3, vec3)
 import Structs exposing (..)
 import Time exposing (Time)
 import Util
-import WebGL exposing (Triangle)
+import WebGL exposing (Shader, Triangle, webgl)
 
 
 type alias Uniforms = Util.WithColorUniforms
@@ -30,7 +30,7 @@ square =
         d = vtx -1 -1
     in  [(a, b, c), (c, d, a)]
 
-vertexShader : WebGL.Shader {pos:Vec2} u {vpos:Vec2}
+vertexShader : Shader {pos:Vec2} u {vpos:Vec2}
 vertexShader = [glsl|
     precision mediump float;
     attribute vec2 pos;
@@ -41,7 +41,7 @@ vertexShader = [glsl|
     }
 |]
 
-fragmentShader : WebGL.Shader {} Uniforms {vpos:Vec2}
+fragmentShader : Shader {} Uniforms {vpos:Vec2}
 fragmentShader = [glsl|
     precision mediump float;
 
@@ -128,5 +128,5 @@ sunColorGL w h fp tmin tmax =
             , startTimeOfYear = Geometry.timeOfYear fp.start.time
             }
 
-    in  WebGL.webgl (w, h) [WebGL.entity vertexShader fragmentShader square uniforms]
+    in  webgl (w, h) [WebGL.entity vertexShader fragmentShader square uniforms]
 
