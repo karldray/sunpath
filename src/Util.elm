@@ -16,13 +16,15 @@ colorToVec3 =
     let f x = (toFloat x) / 255.0
     in  Color.toRgb >> \c -> vec3 (f c.red) (f c.green) (f c.blue)
 
-addColorUniforms : a -> { a
+type alias WithColorUniforms a = { a
     | midnightColor: Vec3
     , darkColor: Vec3
     , lightColor: Vec3
     , noonColor: Vec3
     , colorStopAngle: Float
     }
+
+addColorUniforms : a -> WithColorUniforms a
 addColorUniforms r =
     let c2v = colorToVec3
         -- is there really no multi-field syntax for this?

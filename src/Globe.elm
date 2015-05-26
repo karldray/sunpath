@@ -44,16 +44,10 @@ doubleSided xs =
     xs ++ List.map (\(a, b, c) -> (c, b, a)) xs
 
 
-type alias Uniforms =
+type alias Uniforms = Util.WithColorUniforms
     { sunDirection: Vec3
     , view: Mat4
     , tex: Texture
-    --todo can we get rid of these?
-    , midnightColor: Vec3
-    , darkColor: Vec3
-    , lightColor: Vec3
-    , noonColor: Vec3
-    , colorStopAngle: Float
     }
 
 globe : Int -> Int -> Texture -> Element

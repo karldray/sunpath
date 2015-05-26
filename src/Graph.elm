@@ -74,7 +74,7 @@ apparentTime w h fp =
     ]
 
 
-type alias Uniforms =
+type alias Uniforms = Util.WithColorUniforms
     { localTimeMin: Float
     , localTimeMax: Float
     , startPos: Vec3
@@ -82,12 +82,6 @@ type alias Uniforms =
     , startTime: Float
     , endTime: Float
     , startTimeOfYear: Float
-
-    , midnightColor: Vec3
-    , darkColor: Vec3
-    , lightColor: Vec3
-    , noonColor: Vec3
-    , colorStopAngle: Float
     }
 
 sunColorGL : Int -> Int -> FlightPath -> Time -> Time -> Element
