@@ -29,10 +29,18 @@ type alias PathInfo =
     , dateLine : Float -- smallest t > 0 for which path(t) = (x,0,z) with x < 0
     }
 
+
+-- given two unit vectors, find another unit vector that
+--   is in the same plane
+--   is perpendicular to the first one
+--   has positive dot product with the second one
+direction : Vec3 -> Vec3 -> Vec3
+direction a b = V3.normalize (V3.sub b (V3.scale (V3.dot a b) a))
+
 -- compute the shortest great circle path between two locations
 pathInfo : Location -> Location -> PathInfo
 pathInfo a b = if a == b then {path x = a, dateLine = 0/0 } else
-    let c = V3.normalize (V3.sub b (V3.scale (V3.dot a b) a))
+    let c = direction a b
         pos angle = V3.add (V3.scale (cos angle) a) (V3.scale (sin angle) c)
         abAngle = acos (V3.dot a b)
         y0Angle = -- TODO find a cleaner way to do this using atan2

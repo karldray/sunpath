@@ -164,15 +164,14 @@ globe size tex path =
             , sunDirection = Geometry.sunDirection t
             }
 
-        end = path.end.airport.location
-        dir = V3.normalize <| V3.sub end <| V3.scale (V3.dot pos end) pos
-        right = V3.negate <| V3.cross pos dir
+        dir = Geometry.direction pos path.end.airport.location
+        right = V3.cross dir pos
 
         planeTransform = List.foldr M4.mul M4.identity
             [ view
-            , M4.makeBasis right dir pos
-            , M4.makeTranslate3 0 0 1
-            , M4.makeScale3 0.03 0.03 0.03
+            , M4.makeBasis right dir pos -- move and rotate into position
+            , M4.makeTranslate3 0 0 1 -- lift from origin to globe surface
+            , M4.makeScale3 0.03 0.03 0.03 -- shrink model
             ]
 
     in  webgl (size, size)
