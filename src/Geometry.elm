@@ -24,13 +24,24 @@ toLatLong : Location -> (Float, Float)
 toLatLong v = (asin (V3.getZ v), atan2 (V3.getY v) (V3.getX v))
 
 
--- great circle path between two locations, as a function on [0, 1]
-greatCircle : Location -> Location -> Float -> Location
-greatCircle a b x = if a == b then a else
-    let c = V3.normalize (V3.sub b (V3.scale (V3.dot a b) a))
-        m = x * acos (V3.dot a b)
-    in  V3.add (V3.scale (cos m) a) (V3.scale (sin m) c)
+type alias PathInfo =
+    { path : Float -> Location -- great circle arc as function on [0,1]
+    , dateLine : Float -- smallest t > 0 for which path(t) = (x,0,z) with x < 0
+    }
 
+-- compute the shortest great circle path between two locations
+pathInfo : Location -> Location -> PathInfo
+pathInfo a b = if a == b then {path x = a, dateLine = 0/0 } else
+    let c = V3.normalize (V3.sub b (V3.scale (V3.dot a b) a))
+        pos angle = V3.add (V3.scale (cos angle) a) (V3.scale (sin angle) c)
+        abAngle = acos (V3.dot a b)
+        y0Angle = -- TODO find a cleaner way to do this using atan2
+            let m = atan (-(V3.getY a / V3.getY c))
+                m' = if m < 0 then m + pi else m
+            in  if V3.getX (pos m') < 0 then m' else m' + pi
+    in  { path = (*) abAngle >> pos
+        , dateLine = y0Angle / abAngle
+        }
 
 -- time of year as a float in [0, 1) with summer solstices at 0 and 1
 timeOfYear : Time -> Float
@@ -75,6 +86,6 @@ apparentTime long t =
         todAtLong0 = mod1 days
         longTurns = mod1 (long / (turns 1))
         dateOffset = floor (longTurns + todAtLong0) - floor (2 * longTurns)
-    in  LocalTime.fromTime (LocalTime.utc) (oneDay * (
+    in  LocalTime.fromTime LocalTime.utc (oneDay * (
                 toFloat (dayAtLong0 + dateOffset) + (solarTimeOfDay long t)
             ))

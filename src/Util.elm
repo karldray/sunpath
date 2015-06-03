@@ -2,6 +2,7 @@ module Util where
 
 import Color exposing (Color)
 import Debug
+import List
 import Math.Vector2 exposing (Vec2, vec2)
 import Math.Vector3 exposing (Vec3, vec3)
 import Ref exposing (Ref)
@@ -53,3 +54,14 @@ squareData =
         c = vtx  1 -1
         d = vtx -1 -1
     in  [(a, b, c), (c, d, a)]
+
+
+divideUnit : Int -> List Float
+divideUnit n = List.map (toFloat >> (*) (1 / toFloat n)) [0..n-1]
+
+-- TODO: clean this up
+splitAt : Float -> List Float -> List a -> List (List a)
+splitAt x0 xvals yvals =
+    let pairs = List.map2 (,) xvals yvals
+        (left, right) = List.partition (\(x, y) -> x < x0) pairs
+    in  [List.map snd left, List.map snd right]

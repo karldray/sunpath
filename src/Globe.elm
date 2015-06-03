@@ -1,7 +1,7 @@
 module Globe where
 
 import Geometry
-import Graph.Util exposing (interpolate)
+import Graph.Util
 import Graphics.Element exposing (Element)
 import Math.Vector2 as V2 exposing (Vec2)
 import Math.Vector3 as V3 exposing (Vec3, vec3)
@@ -147,8 +147,11 @@ planeData = wrap [((vec3 0 1 1), (vec3 1 -1 1), (vec3 -1 -1 1))]
 
 
 globe : Int -> Texture -> FlightPath -> Float -> Element
-globe size tex path x =
-    let (t, pos) = interpolate path x
+globe size tex path =
+    let pathInfo = Graph.Util.flightPathInfo path in \x -> let
+
+        pos = pathInfo.path x
+        t = Graph.Util.interpolateTime path x
 
         (lat, long) = Geometry.toLatLong pos
         camera = V3.scale 10 (Geometry.fromLatLong (0.5 * lat) long)

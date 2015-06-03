@@ -2,7 +2,7 @@ module Graph where
 
 import Color
 import Geometry exposing (Location)
-import Graph.Util exposing (interpolate)
+import Graph.Util
 import Graphics.Element exposing (..)
 import Graphics.Collage exposing (..)
 import LocalTime
@@ -16,36 +16,38 @@ import WebGL exposing (Texture)
 
 sunAltitude : Int -> Int -> FlightPath -> Element
 sunAltitude w h fp =
-    let npoints = w // 2
-        xvals = List.map (\x -> (toFloat x) / (toFloat npoints)) [0..npoints]
-
+    let xvals = Util.divideUnit (w // 2)
         yscale = (toFloat h / 2) / degrees 90
-        f = interpolate fp >> \(t, pos) -> Geometry.sunAltitude pos t
+        pathInfo = Graph.Util.flightPathInfo fp
+        f x =
+            let pos = pathInfo.path x
+                t = Graph.Util.interpolateTime fp x
+            in  Geometry.sunAltitude pos t
 
         points = List.map (\x -> ((toFloat w) * (x - 0.5), yscale * (f x))) xvals
-
         (w', h') = (toFloat w, toFloat h)
 
-    in  collage w h [
-        rect w' h'
-            |> gradient (Color.linear (0, -0.5 * h') (0, 0.5 * h')
-                [ (0.0, Style.midnightColor)
-                , (0.5 - Style.colorStopAngle / pi, Style.darkColor)
-                , (0.5 + Style.colorStopAngle / pi, Style.lightColor)
-                , (1.0, Style.noonColor)
-                ]),
-        traced (solid Color.black) (path points)
-    ]
+    in  collage w h (
+            [ rect w' h'
+                |> gradient (Color.linear (0, -0.5 * h') (0, 0.5 * h')
+                    [ (0.0, Style.midnightColor)
+                    , (0.5 - Style.colorStopAngle / pi, Style.darkColor)
+                    , (0.5 + Style.colorStopAngle / pi, Style.lightColor)
+                    , (1.0, Style.noonColor)
+                    ])
+            , traced (solid Color.black) (path points)
+            ]
+        )
 
 apparentTime : Int -> Int -> FlightPath -> Element
 apparentTime w h fp =
-    let f x =
-            let (t, pos) = interpolate fp x
-                (lat, long) = Geometry.toLatLong pos
+    let pathInfo = Graph.Util.flightPathInfo fp
+        f x =
+            let t = Graph.Util.interpolateTime fp x
+                (lat, long) = Geometry.toLatLong (pathInfo.path x)
             in  LocalTime.toTime LocalTime.utc (Geometry.apparentTime long t)
 
-        npoints = h // 2
-        xvals = List.map (\i -> (toFloat i) / (toFloat npoints)) [0..npoints]
+        xvals = Util.divideUnit (h // 2)
         tvals = List.map f xvals
 
         (Just tmax') = List.maximum tvals
@@ -60,37 +62,41 @@ apparentTime w h fp =
 
         points = List.map2 (\x t -> (tscale * (t - tmid), xscale * (0.5 - x))) xvals tvals
 
+        splitPoints = Util.splitAt pathInfo.dateLine xvals points
+        paths = List.map (path >> traced (solid Color.black)) splitPoints
+
     in  flow outward [
         sunColorGL w h fp tmin tmax,
-        collage w h [
-            traced (solid Color.black) (path points)
-        ]
+        collage w h paths
     ]
 
 flatMap : Int -> Texture -> FlightPath -> Float -> Element
 flatMap h tex fp =
     let
         scale = toFloat h / pi
-        f = interpolate fp >> snd >> Geometry.toLatLong >>
+        pathInfo = Graph.Util.flightPathInfo fp
+        f = pathInfo.path >> Geometry.toLatLong >>
                 \(lat, long) -> (scale * long, scale * lat)
 
         npoints = round <| 0.01 *
             Geometry.distance fp.start.airport.location fp.end.airport.location
 
-        step = 1.0 / toFloat npoints
-        points = List.map (toFloat >> (*) step >> f) [0..npoints]
+        xvals = Util.divideUnit npoints
+        points = List.map f xvals
 
-        pathArc = traced (solid Color.black) (path points)
+        splitPoints = Util.splitAt pathInfo.dateLine xvals points
+        paths = List.map (path >> traced (solid Color.black)) splitPoints
+
     in
         \animPos ->
             let
-                (t, pos) = interpolate fp animPos
+                t = Graph.Util.interpolateTime fp animPos
                 sunDirection = Geometry.sunDirection t
             in
                 flow outward
                     [ mapBackground h tex sunDirection
                     , collage (2 * h) h
-                        [ pathArc
+                        (paths ++ [
                         --, circle 5 |> move ...
-                        ]
+                        ])
                     ]
