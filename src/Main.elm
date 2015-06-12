@@ -61,7 +61,7 @@ pathField = Ref.focus .path (\x m -> {m | path <- x})
 
 initialModel : Model
 initialModel =
-    { path = (let head (x::_) = x in head examples).path
+    { path = let (e0::_) = examples in e0.path
     }
 
 model : Signal (Ref Model)
