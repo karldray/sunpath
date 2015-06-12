@@ -5,6 +5,7 @@ import Debug
 import Geometry
 import Globe
 import Graph
+import Graphics.Element as GE exposing (Element, flow, down)
 import Html as H exposing (Html)
 import Html.Events as E
 import Html.Attributes as A
@@ -18,6 +19,7 @@ import String
 import Structs exposing (..)
 import Style as S
 import Task exposing (Task, andThen)
+import Text
 import Time
 import Util
 import WebGL exposing (Texture)
@@ -95,10 +97,14 @@ port run2 = Util.logError "load texture" <|
 port title : String
 port title = "Sunpath"
 
-main : Signal Html
+main : Signal Element
 main = view <~ texture.signal ~ airports.signal ~ model ~ animPos
 
-view : Maybe Texture -> List Airport -> Ref Model -> Ref Float -> Html
+
+makeText : String -> Element
+makeText = Text.fromString >> GE.leftAligned
+
+view : Maybe Texture -> List Airport -> Ref Model -> Ref Float -> Element
 view texture airports model =
     let pathSpec = Ref.map pathField model
 
@@ -110,33 +116,33 @@ view texture airports model =
 
     in  -- avoid repeating the airport lookup on every animation tick
         \animPos ->
-            H.div [] [
-                H.div [] (List.map exampleButton examples),
-
-                endpointLine "Start:" (Ref.map startField pathSpec) startR,
-                endpointLine "End:"   (Ref.map endField   pathSpec) endR,
-
+            flow down [
+                H.toElement 1000 100 <| H.div []
+                    [ H.div [] (List.map exampleButton examples)
+                    , endpointLine "Start:" (Ref.map startField pathSpec) startR
+                    , endpointLine "End:"   (Ref.map endField   pathSpec) endR
+                    ],
                 case pathR of
                     Ok path ->
                         if | path.start.time > path.end.time ->
-                                H.text "End time is before start time!"
+                                makeText "End time is before start time!"
                            | otherwise -> graphs path texture animPos.value
-                    _ -> H.text "No graphs to show."
+                    _ -> makeText "No graphs to show."
             ]
 
-graphs : FlightPath -> Maybe Texture -> Float -> Html
-graphs path texture animPos = H.div []
-    [ H.div [] [H.text (stats path)]
+graphs : FlightPath -> Maybe Texture -> Float -> Element
+graphs path texture animPos = flow down
+    [ makeText (stats path)
     , case texture of
-        Nothing -> H.text "loading texture for globe..."
-        Just t -> H.div []
-            [ H.fromElement <| Globe.globe 300 t path animPos
-            , H.fromElement <| Graph.flatMap 200 t path animPos
+        Nothing -> makeText "loading texture for globe..."
+        Just t -> flow down
+            [ Globe.globe 300 t path animPos
+            , Graph.flatMap 200 t path animPos
             ]
-    , H.text "Sun altitude:"
-    , H.fromElement <| Graph.sunAltitude 500 200 path
-    , H.text "Local solar time:"
-    , H.fromElement <| Graph.apparentTime 400 500 path
+    , makeText "Sun altitude:"
+    , Graph.sunAltitude 500 200 path
+    , makeText "Local solar time:"
+    , Graph.apparentTime 400 500 path
     ]
 
 
