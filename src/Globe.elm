@@ -11,8 +11,8 @@ import Util
 import WebGL exposing (Shader, Texture, Triangle, entity, webgl)
 
 
-dodecahedron : List (Triangle Vec3)
-dodecahedron =
+icosahedron : List (Triangle Vec3)
+icosahedron =
     let theta = 0.4 * pi
         z = 1 / sqrt 5
         r = 2 * z
@@ -52,7 +52,7 @@ wrap : List (Triangle Vec3) -> List (Triangle {pos: Vec3})
 wrap = List.map (WebGL.map (\v -> {pos = v}))
 
 sphereData : List (Triangle {pos: Vec3})
-sphereData = wrap (tessellate 3 dodecahedron)
+sphereData = wrap (tessellate 3 icosahedron)
 
 
 perspective : Mat4
