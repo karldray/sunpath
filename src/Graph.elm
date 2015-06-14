@@ -116,6 +116,8 @@ flatMap h tex fp =
                             , displayDate (t + 12 * hour)
                                 |> move (dateLineX + 9, 0)
                         ] ++ paths ++ [
-                        --, circle 5 |> move ...
+                            circle (0.015 * h')
+                                |> filled Color.black
+                                |> move (f animPos)
                         ])
                     ]
